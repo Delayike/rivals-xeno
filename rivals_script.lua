@@ -1,6 +1,5 @@
 --[[
-    Rivals Ultimate Universal Script (Xeno Optimized & Bypass Protected)
-    Features: Smooth Aimbot (Hold RMB), ESP Boxes (WH), Modern UI (Toggle on K)
+    Rivals Universal Script (Optimized for Xeno)
 ]]--
 
 local Players = game:GetService("Players")
@@ -20,12 +19,8 @@ getgenv().RivalsSettings = {
 }
 
 local Settings = getgenv().RivalsSettings
-
--- Anti-Detection / Xeno Compatibility Wrapper
 local pcall = pcall
 local Drawing = Drawing
-
--- ESP Storage
 local ESPBoxes = {}
 
 local function RemoveESP(player)
@@ -59,7 +54,6 @@ end)
 
 RunService.RenderStepped:Connect(function()
     pcall(function()
-        -- ESP Loop
         for _, player in ipairs(Players:GetPlayers()) do
             if player ~= LocalPlayer then
                 if Settings.ESP and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
@@ -85,7 +79,6 @@ RunService.RenderStepped:Connect(function()
             end
         end
 
-        -- Smooth Aimbot Loop
         if Settings.Aimbot and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
             local closest = nil
             local shortestDist = math.huge
@@ -114,7 +107,6 @@ RunService.RenderStepped:Connect(function()
     end)
 end)
 
--- UI creation with K toggle
 pcall(function()
     if CoreGui:FindFirstChild("RivalsModernHub") then
         CoreGui.RivalsModernHub:Destroy()
@@ -141,7 +133,7 @@ pcall(function()
     Header.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
     Header.Size = UDim2.new(1, 0, 0, 45)
     Header.Font = Enum.Font.GothamBold
-    Header.Text = "Rivals VIP Menu [Key: K]"
+    Header.Text = "Rivals Menu [K]"
     Header.TextColor3 = Color3.fromRGB(255, 255, 255)
     Header.TextSize = 16
 
@@ -149,7 +141,7 @@ pcall(function()
     HeaderCorner.CornerRadius = UDim.new(0, 10)
     HeaderCorner.Parent = Header
 
-    local function MakeToggle(name, yPos, stateVar, callback)
+    local function MakeToggle(name, yPos, stateVar)
         local btn = Instance.new("TextButton")
         btn.Parent = MainFrame
         btn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
@@ -169,19 +161,16 @@ pcall(function()
             local active = Settings[stateVar]
             btn.Text = name .. ": " .. (active and "ON" or "OFF")
             btn.TextColor3 = active and Color3.fromRGB(0, 255, 120) or Color3.fromRGB(200, 200, 200)
-            callback(active)
         end)
     end
 
-    MakeToggle("Smooth Aimbot (Hold RMB)", 60, "Aimbot", function(v) end)
-    MakeToggle("ESP Boxes (WH)", 115, "ESP", function(v) end)
-    MakeToggle("Team Check", 170, "TeamCheck", function(v) end)
+    MakeToggle("Smooth Aimbot", 60, "Aimbot")
+    MakeToggle("ESP Boxes", 115, "ESP")
+    MakeToggle("Team Check", 170, "TeamCheck")
 
-    UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    UserInputService.InputBegan:Connect(function(input)
         if input.KeyCode == Settings.Keybind then
             MainFrame.Visible = not MainFrame.Visible
         end
     end)
 end)
-
-print("Rivals VIP Bypassed Hub Loaded! Press K to toggle menu.")
