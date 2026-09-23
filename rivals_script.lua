@@ -1,5 +1,5 @@
 --[[
-    Rivals Universal Script (Optimized for Xeno)
+    Rivals Universal Script (Fully Functional Aimbot + ESP + Menu on K)
 ]]--
 
 local Players = game:GetService("Players")
@@ -14,13 +14,11 @@ getgenv().RivalsSettings = {
     Aimbot = false,
     ESP = false,
     TeamCheck = true,
-    Smoothness = 6,
+    Smoothness = 5,
     Keybind = Enum.KeyCode.K
 }
 
 local Settings = getgenv().RivalsSettings
-local pcall = pcall
-local Drawing = Drawing
 local ESPBoxes = {}
 
 local function RemoveESP(player)
