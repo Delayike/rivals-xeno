@@ -1,5 +1,5 @@
 --[[
-    Rivals Ultimate Universal Script - Fully Working ESP + Aimbot + UI toggle on K (Optimized for Xeno)
+    Rivals Ultimate Universal Script - Smooth Aimbot + ESP + UI on K (Xeno Optimized)
 ]]--
 
 local Players = game:GetService("Players")
@@ -14,6 +14,7 @@ getgenv().RivalsSettings = {
     Aimbot = false,
     ESP = false,
     TeamCheck = true,
+    Smoothness = 5, -- Плавность аимбота (чем больше, тем плавнее)
     Keybind = Enum.KeyCode.K
 }
 
@@ -31,12 +32,11 @@ local function RemoveESP(player)
     end
 end
 
--- Create ESP Box
 local function CreateESP(player)
     if ESPBoxes[player] then return end
     local box = Drawing.new("Square")
     box.Visible = false
-    box.Color = Color3.fromRGB(255, 0, 0)
+    box.Color = Color3.fromRGB(0, 255, 255)
     box.Thickness = 1.5
     box.Filled = false
     box.Transparency = 1
@@ -47,7 +47,6 @@ Players.PlayerRemoving:Connect(function(player)
     RemoveESP(player)
 end)
 
--- Update ESP & Aimbot Logic
 RunService.RenderStepped:Connect(function()
     -- ESP Loop
     for _, player in ipairs(Players:GetPlayers()) do
@@ -75,7 +74,7 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- Aimbot Loop
+    -- Smooth Aimbot Loop
     if Settings.Aimbot and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
         local closest = nil
         local shortestDist = math.huge
@@ -97,12 +96,13 @@ RunService.RenderStepped:Connect(function()
         end
 
         if closest then
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, closest.Position)
+            local targetCFrame = CFrame.new(Camera.CFrame.Position, closest.Position)
+            Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, 1 / Settings.Smoothness)
         end
     end
 end)
 
--- Beautiful UI creation with K toggle
+-- UI creation with K toggle
 pcall(function()
     if CoreGui:FindFirstChild("RivalsModernHub") then
         CoreGui.RivalsModernHub:Destroy()
@@ -161,11 +161,10 @@ pcall(function()
         end)
     end
 
-    MakeToggle("Aimbot (Hold RMB)", 60, "Aimbot", function(v) end)
+    MakeToggle("Smooth Aimbot (Hold RMB)", 60, "Aimbot", function(v) end)
     MakeToggle("ESP Boxes (WH)", 115, "ESP", function(v) end)
     MakeToggle("Team Check", 170, "TeamCheck", function(v) end)
 
-    -- Toggle Menu visibility via Key 'K'
     UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if input.KeyCode == Settings.Keybind then
             MainFrame.Visible = not MainFrame.Visible
@@ -173,4 +172,4 @@ pcall(function()
     end)
 end)
 
-print("Rivals VIP Hub successfully initialized! Press K to toggle menu.")
+print("Rivals VIP Hub Loaded with Smooth Aimbot! Press K to toggle menu.")
