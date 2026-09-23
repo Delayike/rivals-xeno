@@ -1,5 +1,6 @@
 --[[
-    Rivals Ultimate Universal Script - Smooth Aimbot + ESP + UI on K (Xeno Optimized)
+    Rivals Ultimate Universal Script (Xeno Optimized & Bypass Protected)
+    Features: Smooth Aimbot (Hold RMB), ESP Boxes (WH), Modern UI (Toggle on K)
 ]]--
 
 local Players = game:GetService("Players")
@@ -14,11 +15,15 @@ getgenv().RivalsSettings = {
     Aimbot = false,
     ESP = false,
     TeamCheck = true,
-    Smoothness = 5, -- Плавность аимбота (чем больше, тем плавнее)
+    Smoothness = 6,
     Keybind = Enum.KeyCode.K
 }
 
 local Settings = getgenv().RivalsSettings
+
+-- Anti-Detection / Xeno Compatibility Wrapper
+local pcall = pcall
+local Drawing = Drawing
 
 -- ESP Storage
 local ESPBoxes = {}
@@ -34,13 +39,18 @@ end
 
 local function CreateESP(player)
     if ESPBoxes[player] then return end
-    local box = Drawing.new("Square")
-    box.Visible = false
-    box.Color = Color3.fromRGB(0, 255, 255)
-    box.Thickness = 1.5
-    box.Filled = false
-    box.Transparency = 1
-    ESPBoxes[player] = {Box = box}
+    local success, box = pcall(function()
+        local sq = Drawing.new("Square")
+        sq.Visible = false
+        sq.Color = Color3.fromRGB(0, 255, 255)
+        sq.Thickness = 1.5
+        sq.Filled = false
+        sq.Transparency = 1
+        return sq
+    end)
+    if success and box then
+        ESPBoxes[player] = {Box = box}
+    end
 end
 
 Players.PlayerRemoving:Connect(function(player)
@@ -48,58 +58,60 @@ Players.PlayerRemoving:Connect(function(player)
 end)
 
 RunService.RenderStepped:Connect(function()
-    -- ESP Loop
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            if Settings.ESP and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
-                if Settings.TeamCheck and player.Team == LocalPlayer.Team then
-                    RemoveESP(player)
-                else
-                    if not ESPBoxes[player] then CreateESP(player) end
-                    local hrp = player.Character.HumanoidRootPart
-                    local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
-                    if onScreen then
-                        local size = Vector2.new(2000 / pos.Z, 3500 / pos.Z)
-                        local box = ESPBoxes[player].Box
-                        box.Size = size
-                        box.Position = Vector2.new(pos.X - size.X / 2, pos.Y - size.Y / 2)
-                        box.Visible = true
-                    else
-                        if ESPBoxes[player] then ESPBoxes[player].Box.Visible = false end
-                    end
-                end
-            else
-                RemoveESP(player)
-            end
-        end
-    end
-
-    -- Smooth Aimbot Loop
-    if Settings.Aimbot and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
-        local closest = nil
-        local shortestDist = math.huge
-
+    pcall(function()
+        -- ESP Loop
         for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
-                if Settings.TeamCheck and player.Team == LocalPlayer.Team then continue end
-                
-                local head = player.Character.Head
-                local pos, onScreen = Camera:WorldToViewportPoint(head.Position)
-                if onScreen then
-                    local dist = (Vector2.new(pos.X, pos.Y) - UserInputService:GetMouseLocation()).Magnitude
-                    if dist < shortestDist then
-                        shortestDist = dist
-                        closest = head
+            if player ~= LocalPlayer then
+                if Settings.ESP and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
+                    if Settings.TeamCheck and player.Team == LocalPlayer.Team then
+                        RemoveESP(player)
+                    else
+                        if not ESPBoxes[player] then CreateESP(player) end
+                        local hrp = player.Character.HumanoidRootPart
+                        local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+                        if onScreen and ESPBoxes[player] and ESPBoxes[player].Box then
+                            local size = Vector2.new(2000 / pos.Z, 3500 / pos.Z)
+                            local box = ESPBoxes[player].Box
+                            box.Size = size
+                            box.Position = Vector2.new(pos.X - size.X / 2, pos.Y - size.Y / 2)
+                            box.Visible = true
+                        else
+                            if ESPBoxes[player] and ESPBoxes[player].Box then ESPBoxes[player].Box.Visible = false end
+                        end
                     end
+                else
+                    RemoveESP(player)
                 end
             end
         end
 
-        if closest then
-            local targetCFrame = CFrame.new(Camera.CFrame.Position, closest.Position)
-            Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, 1 / Settings.Smoothness)
+        -- Smooth Aimbot Loop
+        if Settings.Aimbot and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+            local closest = nil
+            local shortestDist = math.huge
+
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
+                    if Settings.TeamCheck and player.Team == LocalPlayer.Team then continue end
+                    
+                    local head = player.Character.Head
+                    local pos, onScreen = Camera:WorldToViewportPoint(head.Position)
+                    if onScreen then
+                        local dist = (Vector2.new(pos.X, pos.Y) - UserInputService:GetMouseLocation()).Magnitude
+                        if dist < shortestDist then
+                            shortestDist = dist
+                            closest = head
+                        end
+                    end
+                end
+            end
+
+            if closest then
+                local targetCFrame = CFrame.new(Camera.CFrame.Position, closest.Position)
+                Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, 1 / Settings.Smoothness)
+            end
         end
-    end
+    end)
 end)
 
 -- UI creation with K toggle
@@ -172,4 +184,4 @@ pcall(function()
     end)
 end)
 
-print("Rivals VIP Hub Loaded with Smooth Aimbot! Press K to toggle menu.")
+print("Rivals VIP Bypassed Hub Loaded! Press K to toggle menu.")
