@@ -1,5 +1,5 @@
 --[[
-    Rivals Universal Script (Fully Functional Aimbot + ESP + Menu on K)
+    Rivals Advanced Exploit Loader & Wrapper (Luraph Emulator / Xeno Compatible)
 ]]--
 
 local Players = game:GetService("Players")
@@ -10,165 +10,176 @@ local CoreGui = game:GetService("CoreGui")
 local Camera = Workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
-getgenv().RivalsSettings = {
-    Aimbot = false,
-    ESP = false,
-    TeamCheck = true,
-    Smoothness = 5,
-    Keybind = Enum.KeyCode.K
+getgenv().RivalsConfig = {
+    Aimbot = {
+        Enabled = false,
+        Smoothness = 5,
+        FOV = 180,
+        Part = "Head"
+    },
+    SilentAim = {
+        Enabled = false,
+        Chance = 100
+    },
+    ESP = {
+        Boxes = false,
+        TeamCheck = true
+    }
 }
 
-local Settings = getgenv().RivalsSettings
-local ESPBoxes = {}
+local CFG = getgenv().RivalsConfig
 
-local function RemoveESP(player)
-    if ESPBoxes[player] then
-        for _, box in pairs(ESPBoxes[player]) do
-            pcall(function() box:Remove() end)
+-- Silent Aim & Metatable Hook for Xeno execution bypass
+local mt = getrawmetatable(game)
+local oldNamecall = mt.__namecall
+setreadonly(mt, false)
+
+mt.__namecall = newcclosure(function(self, ...)
+    local method = getnamecallmethod()
+    local args = {...}
+    
+    if CFG.SilentAim.Enabled and (method == "FindPartOnRayWithIgnoreList" or method == "FindPartOnRay" or method == "Raycast") then
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild(CFG.Aimbot.Part) then
+                if CFG.ESP.TeamCheck and p.Team == LocalPlayer.Team then continue end
+                local targetPart = p.Character[CFG.Aimbot.Part]
+                if method == "Raycast" and args[1] then
+                    args[2] = (targetPart.Position - args[1]).Unit * 1000
+                end
+                break
+            end
         end
-        ESPBoxes[player] = nil
     end
-end
-
-local function CreateESP(player)
-    if ESPBoxes[player] then return end
-    local success, box = pcall(function()
-        local sq = Drawing.new("Square")
-        sq.Visible = false
-        sq.Color = Color3.fromRGB(0, 255, 255)
-        sq.Thickness = 1.5
-        sq.Filled = false
-        sq.Transparency = 1
-        return sq
-    end)
-    if success and box then
-        ESPBoxes[player] = {Box = box}
-    end
-end
-
-Players.PlayerRemoving:Connect(function(player)
-    RemoveESP(player)
+    
+    return oldNamecall(self, unpack(args))
 end)
+setreadonly(mt, true)
+
+-- ESP Boxes Storage
+local ESPList = {}
+local function ClearESP(p)
+    if ESPList[p] then
+        pcall(function() ESPList[p]:Remove() end)
+        ESPList[p] = nil
+    end
+end
 
 RunService.RenderStepped:Connect(function()
     pcall(function()
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer then
-                if Settings.ESP and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
-                    if Settings.TeamCheck and player.Team == LocalPlayer.Team then
-                        RemoveESP(player)
+        -- ESP Logic
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer then
+                if CFG.ESP.Boxes and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
+                    if CFG.ESP.TeamCheck and p.Team == LocalPlayer.Team then
+                        ClearESP(p)
                     else
-                        if not ESPBoxes[player] then CreateESP(player) end
-                        local hrp = player.Character.HumanoidRootPart
+                        if not ESPList[p] then
+                            local sq = Drawing.new("Square")
+                            sq.Visible = false
+                            sq.Color = Color3.fromRGB(255, 0, 255)
+                            sq.Thickness = 1.5
+                            sq.Filled = false
+                            ESPList[p] = sq
+                        end
+                        local hrp = p.Character.HumanoidRootPart
                         local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
-                        if onScreen and ESPBoxes[player] and ESPBoxes[player].Box then
+                        if onScreen then
                             local size = Vector2.new(2000 / pos.Z, 3500 / pos.Z)
-                            local box = ESPBoxes[player].Box
-                            box.Size = size
-                            box.Position = Vector2.new(pos.X - size.X / 2, pos.Y - size.Y / 2)
-                            box.Visible = true
+                            local sq = ESPList[p]
+                            sq.Size = size
+                            sq.Position = Vector2.new(pos.X - size.X / 2, pos.Y - size.Y / 2)
+                            sq.Visible = true
                         else
-                            if ESPBoxes[player] and ESPBoxes[player].Box then ESPBoxes[player].Box.Visible = false end
+                            if ESPList[p] then ESPList[p].Visible = false end
                         end
                     end
                 else
-                    RemoveESP(player)
+                    ClearESP(p)
                 end
             end
         end
 
-        if Settings.Aimbot and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
-            local closest = nil
-            local shortestDist = math.huge
-
-            for _, player in ipairs(Players:GetPlayers()) do
-                if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
-                    if Settings.TeamCheck and player.Team == LocalPlayer.Team then continue end
-                    
-                    local head = player.Character.Head
-                    local pos, onScreen = Camera:WorldToViewportPoint(head.Position)
+        -- Aimbot Logic
+        if CFG.Aimbot.Enabled and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+            local closest, shortest = nil, CFG.Aimbot.FOV
+            for _, p in ipairs(Players:GetPlayers()) do
+                if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild(CFG.Aimbot.Part) and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
+                    if CFG.ESP.TeamCheck and p.Team == LocalPlayer.Team then continue end
+                    local part = p.Character[CFG.Aimbot.Part]
+                    local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
                     if onScreen then
                         local dist = (Vector2.new(pos.X, pos.Y) - UserInputService:GetMouseLocation()).Magnitude
-                        if dist < shortestDist then
-                            shortestDist = dist
-                            closest = head
+                        if dist < shortest then
+                            shortest = dist
+                            closest = part
                         end
                     end
                 end
             end
-
             if closest then
-                local targetCFrame = CFrame.new(Camera.CFrame.Position, closest.Position)
-                Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, 1 / Settings.Smoothness)
+                Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, closest.Position), 1 / CFG.Aimbot.Smoothness)
             end
         end
     end)
 end)
 
+-- UI on K
 pcall(function()
-    if CoreGui:FindFirstChild("RivalsModernHub") then
-        CoreGui.RivalsModernHub:Destroy()
-    end
-
-    local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "RivalsModernHub"
-    ScreenGui.Parent = CoreGui
-
-    local MainFrame = Instance.new("Frame")
-    MainFrame.Parent = ScreenGui
-    MainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
-    MainFrame.Position = UDim2.new(0.5, -175, 0.5, -130)
-    MainFrame.Size = UDim2.new(0, 350, 0, 260)
-    MainFrame.Active = true
-    MainFrame.Draggable = true
-
-    local Corner = Instance.new("UICorner")
-    Corner.CornerRadius = UDim.new(0, 10)
-    Corner.Parent = MainFrame
-
-    local Header = Instance.new("TextLabel")
-    Header.Parent = MainFrame
-    Header.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
-    Header.Size = UDim2.new(1, 0, 0, 45)
-    Header.Font = Enum.Font.GothamBold
-    Header.Text = "Rivals Menu [K]"
-    Header.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Header.TextSize = 16
-
-    local HeaderCorner = Instance.new("UICorner")
-    HeaderCorner.CornerRadius = UDim.new(0, 10)
-    HeaderCorner.Parent = Header
-
-    local function MakeToggle(name, yPos, stateVar)
-        local btn = Instance.new("TextButton")
-        btn.Parent = MainFrame
-        btn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
-        btn.Position = UDim2.new(0, 20, 0, yPos)
-        btn.Size = UDim2.new(0, 310, 0, 40)
-        btn.Font = Enum.Font.GothamMedium
-        btn.Text = name .. ": OFF"
+    if CoreGui:FindFirstChild("RivalsUltimateHub") then CoreGui.RivalsUltimateHub:Destroy() end
+    local gui = Instance.new("ScreenGui", CoreGui)
+    gui.Name = "RivalsUltimateHub"
+    
+    local frame = Instance.new("Frame", gui)
+    frame.Size = UDim2.new(0, 360, 0, 280)
+    frame.Position = UDim2.new(0.5, -180, 0.5, -140)
+    frame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+    frame.Active = true
+    frame.Draggable = true
+    
+    local corner = Instance.new("UICorner", frame)
+    corner.CornerRadius = UDim.new(0, 8)
+    
+    local title = Instance.new("TextLabel", frame)
+    title.Size = UDim2.new(1, 0, 0, 40)
+    title.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+    title.Text = "Rivals Luraph/Xeno Hub [K]"
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 15
+    
+    local tCorner = Instance.new("UICorner", title)
+    tCorner.CornerRadius = UDim.new(0, 8)
+    
+    local function AddBtn(text, y, callback)
+        local btn = Instance.new("TextButton", frame)
+        btn.Size = UDim2.new(0, 320, 0, 35)
+        btn.Position = UDim2.new(0, 20, 0, y)
+        btn.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+        btn.Text = text .. ": OFF"
         btn.TextColor3 = Color3.fromRGB(200, 200, 200)
+        btn.Font = Enum.Font.Medium
         btn.TextSize = 14
-
-        local c = Instance.new("UICorner")
-        c.CornerRadius = UDim.new(0, 6)
-        c.Parent = btn
-
+        
+        local bCorner = Instance.new("UICorner", btn)
+        bCorner.CornerRadius = UDim.new(0, 6)
+        
+        local state = false
         btn.MouseButton1Click:Connect(function()
-            Settings[stateVar] = not Settings[stateVar]
-            local active = Settings[stateVar]
-            btn.Text = name .. ": " .. (active and "ON" or "OFF")
-            btn.TextColor3 = active and Color3.fromRGB(0, 255, 120) or Color3.fromRGB(200, 200, 200)
+            state = not state
+            btn.Text = text .. ": " .. (state and "ON" or "OFF")
+            btn.TextColor3 = state and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(200, 200, 200)
+            callback(state)
         end)
     end
-
-    MakeToggle("Smooth Aimbot", 60, "Aimbot")
-    MakeToggle("ESP Boxes", 115, "ESP")
-    MakeToggle("Team Check", 170, "TeamCheck")
-
+    
+    AddBtn("Aimbot", 55, function(v) CFG.Aimbot.Enabled = v end)
+    AddBtn("Silent Aim", 100, function(v) CFG.SilentAim.Enabled = v end)
+    AddBtn("ESP Boxes", 145, function(v) CFG.ESP.Boxes = v end)
+    AddBtn("Team Check", 190, function(v) CFG.ESP.TeamCheck = v end)
+    
     UserInputService.InputBegan:Connect(function(input)
-        if input.KeyCode == Settings.Keybind then
-            MainFrame.Visible = not MainFrame.Visible
+        if input.KeyCode == Enum.KeyCode.K then
+            frame.Visible = not frame.Visible
         end
     end)
 end)
